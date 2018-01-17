@@ -39,12 +39,12 @@ sealed trait StreamingAccess[K, V] {
 }
 
 
-class KafkaAccess[K, V](config: Config)(implicit k: ClassTag[K], v: ClassTag[V], system: ActorSystem, ser: SimpleSerializer, ec: ExecutionContext, mat: ActorMaterializer) extends StreamingAccess[K, V] {
+class KafkaAccess[K, V](config: Config)(implicit k: ClassTag[K], v: ClassTag[V], system: ActorSystem, ser: KafkaSerializers, ec: ExecutionContext, mat: ActorMaterializer) extends StreamingAccess[K, V] {
 
   require(k.runtimeClass != classOf[Nothing], "key type cannot be Nothing! For instance use getKafkaAccess[String, String](\"kafka1\") not getKafkaAccess(\"kafka1\")")
   require(v.runtimeClass != classOf[Nothing], "value type cannot be Nothing! For instance use getKafkaAccess[String, String](\"kafka1\") not getKafkaAccess(\"kafka1\")")
 
-  import SimpleSerializer._
+  import KafkaSerializers._
   import org.s4s0l.betelgeuse.utils.AllUtils._
 
   /**
@@ -59,8 +59,8 @@ class KafkaAccess[K, V](config: Config)(implicit k: ClassTag[K], v: ClassTag[V],
 
   private[streaming] lazy val consumerSettings: ConsumerSettings[K, V] = {
     val settings = getKafkaConfig(config.string("custom-conf-path")) match {
-      case Some(customConfig) => ConsumerSettings(customConfig, toKafkaDeserializer[K](ser, k), toKafkaDeserializer[V](ser, v))
-      case None => ConsumerSettings(system, toKafkaDeserializer[K](ser, k), toKafkaDeserializer[V](ser, v))
+      case Some(customConfig) => ConsumerSettings(customConfig, toKafkaDeserializer[K](ser.keySer, k), toKafkaDeserializer[V](ser.valueSer, v))
+      case None => ConsumerSettings(system, toKafkaDeserializer[K](ser.keySer, k), toKafkaDeserializer[V](ser.valueSer, v))
     }
     settings.withBootstrapServers(config.getString("bootstrap-servers"))
       .withGroupId(config.getString("group-id"))
@@ -70,8 +70,8 @@ class KafkaAccess[K, V](config: Config)(implicit k: ClassTag[K], v: ClassTag[V],
 
   private[streaming] lazy val producerSettings: ProducerSettings[K, V] = {
     val settings = getKafkaConfig(config.string("custom-conf-path")) match {
-      case Some(customConfig) => ProducerSettings(customConfig, toKafkaSerializer[K](ser,k), toKafkaSerializer[V](ser,v))
-      case None => ProducerSettings(system, toKafkaSerializer[K](ser,k), toKafkaSerializer[V](ser,v))
+      case Some(customConfig) => ProducerSettings(customConfig, toKafkaSerializer[K](ser.keySer,k), toKafkaSerializer[V](ser.valueSer,v))
+      case None => ProducerSettings(system, toKafkaSerializer[K](ser.keySer,k), toKafkaSerializer[V](ser.valueSer,v))
     }
     settings.withBootstrapServers(config.getString("bootstrap-servers"))
   }

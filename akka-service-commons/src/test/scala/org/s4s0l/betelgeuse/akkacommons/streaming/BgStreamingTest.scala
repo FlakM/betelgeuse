@@ -7,8 +7,10 @@ import akka.{Done, NotUsed}
 import com.typesafe.config.ConfigException
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.s4s0l.betelgeuse.akkacommons.serialization.{JacksonJsonSerializable, JacksonJsonSerializer, SimpleSerializer}
 import org.s4s0l.betelgeuse.akkacommons.test.BgTestService
 import org.s4s0l.betelgeuse.akkacommons.test.BgTestService.WithService
+import org.scalatest.GivenWhenThen
 import org.scalatest.concurrent.ScalaFutures
 import org.slf4j.LoggerFactory
 
@@ -16,7 +18,7 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class BgStreamingTest extends BgTestService with ScalaFutures {
+class BgStreamingTest extends BgTestService with ScalaFutures with GivenWhenThen {
 
   private val LOGGER = LoggerFactory.getLogger(getClass)
 
@@ -60,6 +62,52 @@ class BgStreamingTest extends BgTestService with ScalaFutures {
         assert(!consumersAreTheSame(access1, kafkaCustom))
       }
     }
+
+    scenario("we can easily change serializers") {
+      new WithService(aService) {
+        Given("Jackson serializer")
+        val jacksonSerializer: JacksonJsonSerializer = new JacksonJsonSerializer()
+        And("Simple serialized implicitly created from jackson")
+        val kafkaValueSerializer: SimpleSerializer = jacksonSerializer // implicit conversions
+        And("Default serializer created from Akka's serialization extension")
+        val default: SimpleSerializer = aService.service.streamingExtension.defaultKeyValueSerializer
+
+
+        When("We create kafka serialization context for kafkaAccess")
+        implicit val kafkaSerializers: KafkaSerializers = KafkaSerializers(default, kafkaValueSerializer)
+        val access1: KafkaAccess[String, Apple] = aService.service.getKafkaAccess[String, Apple]("kafka1").asInstanceOf[KafkaAccess[String, Apple]]
+
+
+        val apple = Apple("delicious")
+
+        And("We serialize simple object using jackson")
+        val bytes: Array[Byte] = kafkaValueSerializer.toBinary(apple)
+
+
+        Then("We can obtain serializer and deserializers from kafka's properties")
+        assert(access1.producerSettings.valueSerializerOpt.get.isInstanceOf[org.apache.kafka.common.serialization.Serializer[Apple]])
+
+        When("We serialize and deserialize using kafka's internal serializers")
+        val serializedViaKafka: Array[Byte] = access1.producerSettings.valueSerializerOpt.get.serialize("a", apple)
+        val deserializeViaKafka: Apple = access1.consumerSettings.valueDeserializerOpt.get.deserialize("a", bytes)
+
+
+        Then("Kafka uses internally jackson serializer and deserializers for values")
+        assert(bytes sameElements serializedViaKafka)
+        assert(deserializeViaKafka == apple)
+
+
+        When("We try the same with default serializers")
+        val bytes_default: Array[Byte] = default.toBinary(apple)
+
+        val apple_default: Apple = default.fromBinary[Apple](bytes_default)
+
+        Then("Results are different")
+        assert(!(bytes sameElements bytes_default))
+        assert(apple_default == apple)
+      }
+    }
+
 
     scenario("provides default kafka access") {
       new WithService(aService) {
@@ -176,3 +224,6 @@ class BgStreamingTest extends BgTestService with ScalaFutures {
   }
 
 }
+
+case class Apple(a: String) extends JacksonJsonSerializable
+

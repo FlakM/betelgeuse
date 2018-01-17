@@ -31,12 +31,12 @@ trait BgStreaming extends BgService {
 
   implicit def streamingExtension: BgStreamingExtension = BgStreamingExtension(system)
 
-  def getKafkaAccess[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K, V] = getKafkaAccessForConfigKey(s"streaming.context.additional.kafka.$name")
+  def getKafkaAccess[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V], serializer: KafkaSerializers = streamingExtension.defaultSerializers): StreamingAccess[K, V] = getKafkaAccessForConfigKey(s"streaming.context.additional.kafka.$name")
 
 
-  private def getKafkaAccessForConfigKey[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K, V] = BgStreamingExtension(system).buildStreamingAccess[K, V](config.getConfig(name))
+  private def getKafkaAccessForConfigKey[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V], serializer: KafkaSerializers): StreamingAccess[K, V] = BgStreamingExtension(system).buildStreamingAccess[K, V](config.getConfig(name))
 
-  def defaultKafkaAccess[K,V]()(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K,V] = getKafkaAccessForConfigKey[K,V]("streaming.context")(k,v)
+  def defaultKafkaAccess[K, V]()(implicit k: ClassTag[K], v: ClassTag[V], serializer: KafkaSerializers = streamingExtension.defaultSerializers): StreamingAccess[K, V] = getKafkaAccessForConfigKey[K, V]("streaming.context")(k, v, serializer)
 
 
   abstract override def customizeConfiguration: Config = {
@@ -44,11 +44,11 @@ trait BgStreaming extends BgService {
     val url = if (this.serviceInfo.docker) s"${systemName}_kafka:9092" else "127.0.0.1:9092"
     val customConfig = ConfigFactory.parseString(
       s"""
-        |streaming.context.bootstrap-servers="$url"
+         |streaming.context.bootstrap-servers="$url"
       """.stripMargin)
     ConfigFactory.parseResources("streaming.conf")
-        .withFallback(customConfig)
-        .withFallback(super.customizeConfiguration)
+      .withFallback(customConfig)
+      .withFallback(super.customizeConfiguration)
   }
 
 

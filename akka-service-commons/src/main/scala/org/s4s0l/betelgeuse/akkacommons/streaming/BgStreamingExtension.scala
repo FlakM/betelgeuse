@@ -30,14 +30,15 @@ import scala.reflect.ClassTag
 class BgStreamingExtension(private val system: ExtendedActorSystem) extends Extension {
 
 
-  def buildStreamingAccess[K,V](config:Config)(implicit k:ClassTag[K], v:ClassTag[V], serializer:SimpleSerializer = defaultSerializer): StreamingAccess[K,V] = {
+  def buildStreamingAccess[K, V](config: Config)(implicit k: ClassTag[K], v: ClassTag[V], serializer: KafkaSerializers = defaultSerializers): StreamingAccess[K, V] = {
     implicit val systemA: ExtendedActorSystem = system
     val ec = system.dispatchers.lookup(config.string("poolName").getOrElse("streaming.context.streaming-io-dispatcher"))
-    new KafkaAccess(config)(k,v, system,serializer,ec, ActorMaterializer())
+    new KafkaAccess(config)(k, v, system, serializer, ec, ActorMaterializer())
   }
 
-  def defaultSerializer = SimpleSerializer(system)
+  implicit lazy val defaultKeyValueSerializer: SimpleSerializer = SimpleSerializer(system)
 
+  def defaultSerializers: KafkaSerializers = KafkaSerializers(defaultKeyValueSerializer, defaultKeyValueSerializer)
 
 }
 
