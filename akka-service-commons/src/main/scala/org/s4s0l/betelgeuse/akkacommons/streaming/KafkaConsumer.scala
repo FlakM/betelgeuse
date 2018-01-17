@@ -20,11 +20,16 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerMessage, ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.Source
 
+
+trait KafkaConsumer[K, V] {
+  def source(topics: Set[String]): Source[ConsumerMessage.CommittableMessage[K, V], Consumer.Control]
+}
+
+
 /**
   * @author Maciej Flak
   */
-class KafkaConsumer[K, V] private[streaming](consumerSettings: ConsumerSettings[K, V]) {
-
+class KafkaConsumerImpl[K, V] private[streaming](consumerSettings: ConsumerSettings[K, V]) extends KafkaConsumer[K,V]{
 
   /**
     * simple wrapper around [[akka.kafka.scaladsl.Consumer#committableSource(akka.kafka.ConsumerSettings, akka.kafka.Subscription)]]

@@ -31,14 +31,24 @@ trait BgStreaming extends BgService {
 
   implicit def streamingExtension: BgStreamingExtension = BgStreamingExtension(system)
 
-  def getKafkaAccess[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K, V] = BgStreamingExtension(system).buildStreamingAccess[K, V](config.getConfig(name))
+  def getKafkaAccess[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K, V] = getKafkaAccessForConfigKey(s"streaming.context.additional.kafka.$name")
 
-  def defaultKafkaAccess[K,V]()(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K,V] = getKafkaAccess[K,V]("streaming.context")(k,v)
+
+  private def getKafkaAccessForConfigKey[K, V](name: String)(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K, V] = BgStreamingExtension(system).buildStreamingAccess[K, V](config.getConfig(name))
+
+  def defaultKafkaAccess[K,V]()(implicit k: ClassTag[K], v: ClassTag[V]): StreamingAccess[K,V] = getKafkaAccessForConfigKey[K,V]("streaming.context")(k,v)
 
 
   abstract override def customizeConfiguration: Config = {
     LOGGER.info("Customize config with streaming.conf with fallback to...")
-    ConfigFactory.parseResources("streaming.conf").withFallback(super.customizeConfiguration)
+    val url = if (this.serviceInfo.docker) s"${systemName}_kafka:9092" else "127.0.0.1:9092"
+    val customConfig = ConfigFactory.parseString(
+      s"""
+        |streaming.context.bootstrap-servers="$url"
+      """.stripMargin)
+    ConfigFactory.parseResources("streaming.conf")
+        .withFallback(customConfig)
+        .withFallback(super.customizeConfiguration)
   }
 
 

@@ -4,10 +4,11 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerMessage, ProducerMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.{Done, NotUsed}
+import com.typesafe.config.ConfigException
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.s4s0l.betelgeuse.akkacommons.test.BgTestService
 import org.s4s0l.betelgeuse.akkacommons.test.BgTestService.WithService
-import org.s4s0l.betelgeuse.akkacommons.test.BgTestStreaming
 import org.scalatest.concurrent.ScalaFutures
 import org.slf4j.LoggerFactory
 
@@ -15,7 +16,7 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class BgStreamingTest extends BgTestStreaming with ScalaFutures {
+class BgStreamingTest extends BgTestService with ScalaFutures {
 
   private val LOGGER = LoggerFactory.getLogger(getClass)
 
@@ -29,14 +30,21 @@ class BgStreamingTest extends BgTestStreaming with ScalaFutures {
   def getUniqueTopic = s"topic${System.currentTimeMillis()}"
 
   feature("BgStreaming service provides access to streaming") {
-    scenario("someone forgets to pass type parameters"){
+    scenario("someone forgets to pass type parameters") {
       new WithService(aService) {
-        assertThrows[IllegalArgumentException]{
+        assertThrows[IllegalArgumentException] {
           aService.service.getKafkaAccess("kafka1").asInstanceOf[KafkaAccess[String, String]]
         }
       }
     }
 
+    scenario("we get kafka instance not at the specified path") {
+      new WithService(aService) {
+        assertThrows[ConfigException] {
+          aService.service.getKafkaAccess[String, String]("kafka-top-level").asInstanceOf[KafkaAccess[String, String]]
+        }
+      }
+    }
 
     scenario("we have multiple kafka instances") {
       new WithService(aService) {
@@ -127,8 +135,8 @@ class BgStreamingTest extends BgTestStreaming with ScalaFutures {
           .via(mappingFlow)
           .runWith(kafkaSink)
 
-        whenReady(publish_flow){ res =>
-          assert (res == akka.Done)
+        whenReady(publish_flow) { res =>
+          assert(res == akka.Done)
         }
 
         val pull_job: Future[immutable.Seq[String]] = kafka.consumer.source(Set(topic)).mapAsync(1) { msg =>
@@ -138,9 +146,9 @@ class BgStreamingTest extends BgTestStreaming with ScalaFutures {
         }.take(6).runWith(Sink.seq)
 
 
-        whenReady(pull_job){ res =>
+        whenReady(pull_job) { res =>
           assert(res.size == 6)
-          assert(res.toSet == Set("a","b","c","A","B","C"))
+          assert(res.toSet == Set("a", "b", "c", "A", "B", "C"))
         }
       }
     }

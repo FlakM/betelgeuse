@@ -32,7 +32,6 @@ task ('repl', type:JavaExec) {
     main = "scala.tools.nsc.MainGenericRunner"
     classpath = sourceSets.main.runtimeClasspath
     standardInput System.in
-    //noinspection GroovyAssignabilityCheck
     args "-usejavacp"
 }
 

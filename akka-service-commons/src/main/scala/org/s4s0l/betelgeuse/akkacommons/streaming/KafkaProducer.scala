@@ -28,7 +28,14 @@ import scala.concurrent.{ExecutionContext, Future}
 /**
   * @author Maciej Flak
   */
-class KafkaProducer[K, V] private[streaming](producerSettings: ProducerSettings[K, V])(implicit ec: ExecutionContext, mat: ActorMaterializer) {
+trait KafkaProducer[K,V]{
+  def sink(shared: Boolean=false): Sink[ProducerRecord[K, V], Future[Done]]
+  def flow[P](shared: Boolean=false): Flow[ProducerMessage.Message[K, V, P], ProducerMessage.Result[K, V, P], NotUsed]
+  def single(topic: String, elems: List[V]): Future[Done]
+}
+
+
+class KafkaProducerImpl[K, V] private[streaming](producerSettings: ProducerSettings[K, V])(implicit ec: ExecutionContext, mat: ActorMaterializer) extends KafkaProducer[K,V]{
 
   private val shared_producer = producerSettings.createKafkaProducer()
 

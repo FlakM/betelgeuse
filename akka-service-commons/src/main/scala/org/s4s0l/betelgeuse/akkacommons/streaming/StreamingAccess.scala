@@ -58,26 +58,26 @@ class KafkaAccess[K, V](config: Config)(implicit k: ClassTag[K], v: ClassTag[V],
 
 
   private[streaming] lazy val consumerSettings: ConsumerSettings[K, V] = {
-    val settings = getKafkaConfig(config.string("customConfPath")) match {
+    val settings = getKafkaConfig(config.string("custom-conf-path")) match {
       case Some(customConfig) => ConsumerSettings(customConfig, toKafkaDeserializer[K](ser, k), toKafkaDeserializer[V](ser, v))
       case None => ConsumerSettings(system, toKafkaDeserializer[K](ser, k), toKafkaDeserializer[V](ser, v))
     }
-    settings.withBootstrapServers(config.getString("bootstrapServers"))
-      .withGroupId(config.getString("groupId"))
-      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, config.string("offsetReset").getOrElse("earliest"))
+    settings.withBootstrapServers(config.getString("bootstrap-servers"))
+      .withGroupId(config.getString("group-id"))
+      .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, config.string("offset-reset").getOrElse("earliest"))
   }
 
 
   private[streaming] lazy val producerSettings: ProducerSettings[K, V] = {
-    val settings = getKafkaConfig(config.string("customConfPath")) match {
+    val settings = getKafkaConfig(config.string("custom-conf-path")) match {
       case Some(customConfig) => ProducerSettings(customConfig, toKafkaSerializer[K](ser,k), toKafkaSerializer[V](ser,v))
       case None => ProducerSettings(system, toKafkaSerializer[K](ser,k), toKafkaSerializer[V](ser,v))
     }
-    settings.withBootstrapServers(config.getString("bootstrapServers"))
+    settings.withBootstrapServers(config.getString("bootstrap-servers"))
   }
 
-  override lazy val consumer: KafkaConsumer[K, V] = new KafkaConsumer(consumerSettings)
+  override lazy val consumer: KafkaConsumer[K, V] = new KafkaConsumerImpl(consumerSettings)
 
-  override lazy val producer: KafkaProducer[K, V] = new KafkaProducer(producerSettings)
+  override lazy val producer: KafkaProducer[K, V] = new KafkaProducerImpl(producerSettings)
 
 }
